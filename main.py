@@ -7,6 +7,9 @@ import discord
 from discord.ext import commands
 import random
 from datetime import datetime, timedelta
+import os
+from flask import Flask
+from threading import Thread
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -217,5 +220,23 @@ async def daily(ctx):
 async def helpme(ctx):
     await ctx.send('Commands: !s (spawn), !c [meat], !shop, !buy <item>, !job [role], !work, !profile, !inventory, !lb, !daily')
 
+# === RENDER HOSTING SETUP ===
+# Flask app for health checks
+app = Flask('')
 
-bot.run('')
+@app.route('/')
+def home():
+    return "🦖 Dino RPG Bot is alive and running!"
+
+def run():
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+# Start the keep-alive server and run bot
+if __name__ == "__main__":
+    keep_alive()
+    bot.run(os.getenv('DISCORD_TOKEN'))
+    
