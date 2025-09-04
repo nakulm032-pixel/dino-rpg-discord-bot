@@ -1,0 +1,190 @@
+import json
+import os
+import time
+
+PLAYER_DATA_FILE = "player_data.json"
+RANKS = [
+    ("Novice", 0),
+    ("Trainee", 200),
+    ("Ranger", 500),
+    ("Champion", 1200),
+    ("Master", 2500),
+]
+
+def load_players():
+    if os.path.exists(PLAYER_DATA_FILE):
+        with open(PLAYER_DATA_FILE, "r") as f:
+            return json.load(f)
+    else:
+        return {}
+
+def save_players(players):
+    with open(PLAYER_DATA_FILE, "w") as f:
+        json.dump(players, f, indent=2)
+
+def get_player(user_id, username=None):
+    players = load_players()
+    user_id = str(user_id)
+    if user_id not in players:
+        players[user_id] = {
+            "username": username or f"User {user_id}",
+            "xp": 0,
+            "coins": 0,
+            "level": 1,
+            "rank": "Novice",
+            "inventory": {
+                "potion": 1, "bait": 1, "superpotion": 0, "revive": 0, 
+                "atkboost": 0, "defboost": 0, "speedboost": 0, "egg": 0
+            },
+            "dinos": [],
+            "party": [],
+            "achievements": [],
+            "bond": 0,
+            "titles": [],
+            "accessories": [],
+            "wins": 0,
+            "losses": 0,
+            "rating": 1000,
+        }
+        save_players(players)
+    return players[user_id]
+
+def add_xp(user_id, amount):
+    players = load_players()
+    user_id = str(user_id)
+    player = players.get(user_id)
+    if not player:
+        return
+    player["xp"] += amount
+    while player["xp"] >= player["level"] * 100:
+        player["xp"] -= player["level"] * 100
+        player["level"] += 1
+    # Update rank
+    for rank, req in reversed(RANKS):
+        if player["level"] * 100 >= req:
+            player["rank"] = rank
+            break
+    save_players(players)
+    return player
+
+def add_bond(user_id, dino_index, amt=1):
+    players = load_players()
+    user_id = str(user_id)
+    dino = players[user_id]["dinos"][dino_index]
+    dino["bond"] = dino.get("bond", 0) + amt
+    save_players(players)
+
+def add_item(user_id, item, qty=1):
+    players = load_players()
+    user_id = str(user_id)
+    player = players.get(user_id)
+    if not player:
+        return
+    inv = player["inventory"]
+    inv[item] = inv.get(item, 0) + qty
+    save_players(players)
+
+def use_item(user_id, item):
+    players = load_players()
+    user_id = str(user_id)
+    player = players.get(user_id)
+    if not player:
+        return False
+    inv = player["inventory"]
+    if inv.get(item, 0) > 0:
+        inv[item] -= 1
+        save_players(players)
+        return True
+    return False
+
+def get_inventory(user_id):
+    players = load_players()
+    return players.get(str(user_id), {}).get("inventory", {})
+
+def add_dinosaur(user_id, dinosaur):
+    players = load_players()
+    user_id = str(user_id)
+    player = players.get(user_id)
+    if not player:
+        return
+    player["dinos"].append(dinosaur)
+    save_players(players)
+
+def can_claim_daily(user_id):
+    players = load_players()
+    user_id = str(user_id)
+    last_claim = players.get(user_id, {}).get("last_daily", 0)
+    now = int(time.time())
+    return now - last_claim >= 86400  # 24 hours
+
+def claim_daily(user_id):
+    players = load_players()
+    user_id = str(user_id)
+    if user_id not in players:
+        return None
+    players[user_id]["last_daily"] = int(time.time())
+    import random
+    reward_type = random.choice(["xp", "potion", "bait"])
+    if reward_type == "xp":
+        prize = random.randint(40, 75)
+        players[user_id]["xp"] += prize
+        result = f"{prize} XP"
+    else:
+        players[user_id]["inventory"][reward_type] += 1
+        result = f"1 {reward_type.capitalize()}"
+    save_players(players)
+    return result
+
+def can_evolve(dino):
+    return dino.get("level", 1) >= 10 and not dino.get("evolved", False)
+
+def evolve_dino(user_id, dino_index):
+    players = load_players()
+    user_id = str(user_id)
+    player = players.get(user_id)
+    if not player:
+        return False
+    dino = player["dinos"][dino_index]
+    if not can_evolve(dino):
+        return False
+    dino["level"] += 1
+    dino["attack"] += 10
+    dino["defense"] += 7
+    dino["speed"] += 3
+    dino["evolved"] = True
+    dino["name"] = "Mega " + dino["name"]
+    dino["emoji"] = "🌟" + dino["emoji"]
+    save_players(players)
+    return True
+
+def add_coins(user_id, amount):
+    players = load_players()
+    user_id = str(user_id)
+    player = players.get(user_id)
+    if not player: return
+    player['coins'] += amount
+    save_players(players)
+
+def get_coins(user_id):
+    players = load_players()
+    user_id = str(user_id)
+    return players.get(user_id, {}).get("coins", 0)
+
+def set_party(user_id, party_indices):
+    players = load_players()
+    user_id = str(user_id)
+    player = players.get(user_id)
+    if not player: return False
+    all_dinos = player.get("dinos", [])
+    new_party = []
+    for idx in party_indices:
+        if 0 <= idx < len(all_dinos):
+            new_party.append(all_dinos[idx])
+    player["party"] = new_party
+    save_players(players)
+    return True
+
+def get_party(user_id):
+    players = load_players()
+    user_id = str(user_id)
+    return players.get(user_id, {}).get("party", [])
