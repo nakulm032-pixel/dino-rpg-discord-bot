@@ -203,6 +203,8 @@ async def lb(ctx):
     txt = '\n'.join([f'{i+1}. {user} Coins: {data["coins"]} Dinos: {len(data["dinosaurs"])}' for i,(user,data) in enumerate(sorted(PLAYER_DATA.items(),key=lambda x:x[1]["coins"],reverse=True)[:10])])
     await ctx.send(f'Leaderboard:\n{txt}')
 
+bot.run('') 
+
 @bot.command()
 async def daily(ctx):
     player = get_player(ctx.author.id)
