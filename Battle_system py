@@ -1,0 +1,52 @@
+import random
+from player_system import load_players, save_players, get_player, add_xp
+
+class BattleState:
+    """Manages the state of an ongoing battle."""
+    def __init__(self, challenger_id, opponent_id):
+        self.challenger_id = str(challenger_id)
+        self.opponent_id = str(opponent_id)
+        self.turn = None   # Will be set after speed check
+        self.winner = None
+        self.finished = False
+
+        self.players = load_players()
+        self.challenger_dino = self.players[self.challenger_id]["dinos"][-1]
+        self.opponent_dino = self.players[self.opponent_id]["dinos"][-1]
+        self.set_initial_hp()
+
+        # Check speed for first turn
+        if self.challenger_dino["speed"] >= self.opponent_dino["speed"]:
+            self.turn = self.challenger_id
+        else:
+            self.turn = self.opponent_id
+
+    def set_initial_hp(self):
+        self.challenger_dino["battle_hp"] = self.challenger_dino.get("hp", 50)
+        self.opponent_dino["battle_hp"] = self.opponent_dino.get("hp", 50)
+
+    def do_attack(self):
+        # Determine attacker and defender
+        att_player = self.players[self.turn]
+        def_player = self.players[self.opponent_id if self.turn == self.challenger_id else self.challenger_id]
+        att_dino = att_player["dinos"][-1]
+        def_dino = def_player["dinos"][-1]
+        # Simple damage formula (attack - def/2)
+        damage = max(1, att_dino["attack"] - int(def_dino["defense"] / 2) + random.randint(-2, 2))
+        def_dino["battle_hp"] -= damage
+        text = f"{att_player['username']}'s {att_dino['name']} attacks for {damage} damage! "
+        if def_dino["battle_hp"] <= 0:
+            self.winner = self.turn
+            self.finished = True
+            def_dino["battle_hp"] = 0
+            text += f"{def_player['username']}'s {def_dino['name']} fainted!"
+            add_xp(self.winner, 50)
+            add_xp(self.challenger_id if self.turn == self.opponent_id else self.opponent_id, 15)
+        else:
+            # Next turn
+            self.turn = self.opponent_id if self.turn == self.challenger_id else self.challenger_id
+        save_players(self.players)
+        return text
+
+def start_battle(challenger_id, opponent_id):
+    return BattleState(challenger_id, opponent_id)
